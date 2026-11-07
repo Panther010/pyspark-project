@@ -27,10 +27,35 @@ transformations:
           - column: volume
             to: long
 
-  - name: filter_valid_records
+  - name: filter_missing_price
     type: filter
+    reject_reason: missing_price
     condition:
       column: price
+      operator: not_null
+      value: 0
+
+  - name: filter_missing_volume
+    type: filter
+    reject_reason: missing_volume
+    condition:
+      column: price
+      operator: not_null
+      value: 0
+
+  - name: filter_valid_price
+    type: filter
+    reject_reason: invalid_price
+    condition:
+      column: price
+      operator: gt
+      value: 0
+
+  - name: filter_valid_volume
+    type: filter
+    reject_reason: invalid_volume
+    condition:
+      column: volume
       operator: gt
       value: 0
 

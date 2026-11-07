@@ -10,8 +10,8 @@ class PipelineConfig:
         self.name = raw['pipeline']['name']
         self.source = raw['source']
         self.transformation_steps = raw['transformations']
-        self.output_columns = raw['output']
-        self.validation_rules = raw['validation']
+        self.output_columns = raw.get('output')
+        self.validation_rules = raw.get('validation')
 
 
     @classmethod

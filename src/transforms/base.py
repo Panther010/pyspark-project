@@ -26,6 +26,10 @@ class Transform(ABC):
         """Apply the transformation."""
         pass
 
+    @abstractmethod
+    def rejected(self, df:DataFrame):
+        return None
+
 
 class CleanColumns(Transform):
 
@@ -54,13 +58,15 @@ class CleanColumns(Transform):
                 case _:
                     raise ValueError(
                 f"{self.name}: unknown operation '{operation}'. Supported: ['cast', 'trim', 'upper']")
-
+        df.show(30)
         return df
 
+    def rejected(self, df:DataFrame):
+        return None
 
 class FilterTransform(Transform):
 
-    def apply(self, df: DataFrame) -> DataFrame:
+    def _pass(self):
         column = self.config["condition"]["column"]
         operator = self.config["condition"]["operator"]
         value = self.config["condition"].get('value')
@@ -70,8 +76,15 @@ class FilterTransform(Transform):
 
         self.log.info("Applying '%s' on column : '%s'", operator, column)
 
-        return df.filter(FILTER_OPERATORS[operator](column, value))
+        return FILTER_OPERATORS[operator](column, value)
 
+    def apply(self, df: DataFrame) -> DataFrame:
+
+        passed = df.filter(self._pass())
+        return passed
+
+    def rejected(self, df:DataFrame):
+        return df.filter(~self._pass()).withColumn("reject_reason", F.lit(self.config.get('reject_reason')))
 
 class ExpressionTransform(Transform):
 
@@ -88,6 +101,8 @@ class ExpressionTransform(Transform):
                 f"{self.name}: unknown function '{function}'. Supported: {sorted(EXPRESSION_FUNCTIONS)}")
         return df.withColumn(out_col, fn(columns))
 
+    def rejected(self, df:DataFrame):
+        return None
 
 class AggregateTransform(Transform):
     FUNCTIONS = {"sum": F.sum, "avg": F.avg, "count": F.count, "min": F.min, "max": F.max}
@@ -98,3 +113,6 @@ class AggregateTransform(Transform):
         df = df.groupby(*self.config['group_by']).agg(*agg)
         self.log.info("Applying aggregations on Dataframe ")
         return df
+
+    def rejected(self, df:DataFrame):
+        return None

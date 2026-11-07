@@ -22,6 +22,7 @@ class PipelineEngine:
         self.spark = spark
         self.config = config
         self.log = logging.getLogger(__name__)
+        self.rejected_df = None
 
     @staticmethod
     def _build_step(step_config:dict) -> Transform:
@@ -53,6 +54,11 @@ class PipelineEngine:
 
         for step in steps:
             self.log.info("Running step '%s'", step.name)
+
+            bad = step.rejected(df)
+            if bad is not None:
+                self.rejected_df = bad if self.rejected_df is None else self.rejected_df.unionByName(bad)
+
             df = step.apply(df)
 
         df = df.select(*self.config.output_columns['columns'])
