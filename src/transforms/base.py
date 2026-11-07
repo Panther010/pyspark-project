@@ -2,8 +2,16 @@
 Transform base.
 """
 from abc import ABC, abstractmethod
-
-from pyspark.sql import SparkSession, DataFrame, functions as F
+import logging
+from src.transforms.functions import (
+    EXPRESSION_FUNCTIONS,
+    FILTER_OPERATORS,
+    trim_all,
+    to_upper,
+    safe_cast,
+    parse_date
+)
+from pyspark.sql import DataFrame, functions as F
 
 
 class Transform(ABC):
@@ -11,11 +19,13 @@ class Transform(ABC):
     def __init__(self, config: dict):
         self.config = config
         self.name = config["name"]
+        self.log = logging.getLogger(__name__)
 
     @abstractmethod
     def apply(self, df: DataFrame) -> DataFrame:
         """Apply the transformation."""
         pass
+
 
 class CleanColumns(Transform):
 
@@ -24,55 +34,44 @@ class CleanColumns(Transform):
         for operation in operations:
             match operation["function"]:
                 case "trim_all":
-                    df.printSchema()
-                    print(f"Trimming all the string columns")
-                    df.printSchema()
-                    df = df.select([
-                        F.trim(F.col(col_name)).alias(col_name)
-                        if col_type == "string" else F.col(col_name)
-                        for col_name, col_type in df.dtypes
-                    ])
+                    self.log.info("Trimming all the string columns")
+                    df = trim_all(df)
                 case "upper":
                     columns = operation["columns"]
-                    print(f"converting {columns} to upper case")
-                    df = df.select([
-                        F.upper(F.col(col_name)).alias(col_name)
-                        if col_name in columns else F.col(col_name)
-                        for col_name in df.columns
-                    ])
+                    self.log.info("converting '%s' to upper case", columns)
+                    df = to_upper(df, columns)
                 case "cast":
                     for inp in operation["input"]:
                         col_name = inp['column']
                         to_cast = inp['to']
-                        if to_cast == "double" or to_cast == "long":
-                            print(f"converting column {col_name} to {to_cast}")
-                            df = df.withColumn(col_name, F.expr(f"try_cast(`{col_name}` AS {to_cast})"))
-                        elif to_cast == "date":
-                            format1, format2 = inp['format']
-                            print(f"converting column {col_name} to {to_cast} and {format1} and {format2}")
 
-                            df = df.withColumn(
-                                col_name, F.coalesce(F.try_to_date(col_name, format1), F.try_to_date(col_name, format2))
-                            )
-                    print(f" Count after all the operations : {df.count()}")
-                    print("schema after casting")
-                    df.printSchema()
-
+                        if to_cast == "date":
+                            self.log.info("converting column '%s' to '%s'", col_name, to_cast)
+                            df = df.withColumn(col_name, parse_date(col_name, inp["format"]))
+                        else:
+                            self.log.info("converting column '%s' to '%s'", col_name, to_cast)
+                            df = df.withColumn(col_name, safe_cast(col_name, to_cast))
+                case _:
+                    raise ValueError(
+                f"{self.name}: unknown operation '{operation}'. Supported: ['cast', 'trim', 'upper']")
 
         return df
+
 
 class FilterTransform(Transform):
 
     def apply(self, df: DataFrame) -> DataFrame:
         column = self.config["condition"]["column"]
         operator = self.config["condition"]["operator"]
-        value = self.config["condition"]["value"]
-        match operator:
-            case "gt":
-                print(f"Applying {operator} on column {column} against value {value}")
-                return df.filter(F.col(column) > F.lit("0"))
+        value = self.config["condition"].get('value')
 
-        return df
+        if operator not in FILTER_OPERATORS:
+            raise ValueError(f"{self.name}: unknown operator '{operator}'. Supported: {sorted(FILTER_OPERATORS)}")
+
+        self.log.info("Applying '%s' on column : '%s'", operator, column)
+
+        return df.filter(FILTER_OPERATORS[operator](column, value))
+
 
 class ExpressionTransform(Transform):
 
@@ -82,16 +81,12 @@ class ExpressionTransform(Transform):
         function = spec['function']
         columns = [F.col(i["column"]) for i in spec.get("inputs", [])]
 
-        if function == "multiply":
-            print(f"applying {spec} on {columns}")
-            return df.withColumn(out_col, F.try_multiply(columns[0] , columns[1]))
-        elif function == "divide":
-            print(f"applying {spec} on {columns}")
-            return df.withColumn(out_col, F.try_divide(columns[0] , columns[1]))
-        elif function == "current_timestamp":
-            print(f"applying {spec} on {columns}")
-            return df.withColumn(out_col, F.current_timestamp())
-        return df
+        fn = EXPRESSION_FUNCTIONS.get(function)
+
+        if fn is None:
+            raise ValueError(
+                f"{self.name}: unknown function '{function}'. Supported: {sorted(EXPRESSION_FUNCTIONS)}")
+        return df.withColumn(out_col, fn(columns))
 
 
 class AggregateTransform(Transform):
@@ -101,35 +96,5 @@ class AggregateTransform(Transform):
         agg = [self.FUNCTIONS[a['function']](F.col(a['column'])).alias(a['alias'])
                for a in self.config['aggregations']]
         df = df.groupby(*self.config['group_by']).agg(*agg)
-        print(f"Applying aggregations on the dataframes ")
-        df.show()
-        df.printSchema()
+        self.log.info("Applying aggregations on Dataframe ")
         return df
-
-
-if __name__ == "__main":
-    spark = SparkSession.builder.appName("tfx").master("local").getOrCreate()
-    data = [
-        ("Alice", 25),
-        ("Bob", 15),
-        ("Charlie", 30),
-        ("David", 12)
-    ]
-    columns = ["name", "age"]
-    df_input = spark.createDataFrame(data, schema=columns)
-    df_input.show()
-    config_data = {
-        "name": "AgeFilterTask",
-        "condition": {
-            "column": "age",
-            "operator": "gt",
-            "value": 18
-        }
-    }
-
-    # D. Instantiate and run your transformation class!
-    age_filter = FilterTransform(config=config_data)
-    df_output = age_filter.apply(df_input)
-    print("--- Filtered DataFrame (Age > 18) ---")
-    df_output.show()
-
