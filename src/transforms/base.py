@@ -88,6 +88,9 @@ class ExpressionTransform(Transform):
         elif function == "divide":
             print(f"applying {spec} on {columns}")
             return df.withColumn(out_col, F.try_divide(columns[0] , columns[1]))
+        elif function == "current_timestamp":
+            print(f"applying {spec} on {columns}")
+            return df.withColumn(out_col, F.current_timestamp())
         return df
 
 
