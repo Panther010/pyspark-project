@@ -24,6 +24,11 @@ def trim_all(df: DataFrame) -> DataFrame:
                       if col_type == "string" else F.col(col_name)
                       for col_name, col_type in df.dtypes])
 
+def trim(df: DataFrame, columns: list[str]) -> DataFrame:
+    return df.select([F.trim(F.col(col_name)).alias(col_name)
+                      if col_name == columns else F.col(col_name)
+                      for col_name in df.columns])
+
 def to_upper(df: DataFrame, columns: list[str]) -> DataFrame:
     return df.select([F.upper(F.col(n)).alias(n) if n in columns else F.col(n)
                       for n in df.columns])
