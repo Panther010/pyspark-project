@@ -7,6 +7,7 @@ from src.transforms.functions import (
     EXPRESSION_FUNCTIONS,
     FILTER_OPERATORS,
     trim_all,
+    trim,
     to_upper,
     safe_cast,
     parse_date
@@ -26,7 +27,6 @@ class Transform(ABC):
         """Apply the transformation."""
         pass
 
-    @abstractmethod
     def rejected(self, df:DataFrame):
         return None
 
@@ -40,6 +40,10 @@ class CleanColumns(Transform):
                 case "trim_all":
                     self.log.info("Trimming all the string columns")
                     df = trim_all(df)
+                case "trim":
+                    columns = operation["columns"]
+                    self.log.info("Trimming columns '%s' the string columns", columns)
+                    df = trim(df, columns)
                 case "upper":
                     columns = operation["columns"]
                     self.log.info("converting '%s' to upper case", columns)
@@ -57,12 +61,9 @@ class CleanColumns(Transform):
                             df = df.withColumn(col_name, safe_cast(col_name, to_cast))
                 case _:
                     raise ValueError(
-                f"{self.name}: unknown operation '{operation}'. Supported: ['cast', 'trim', 'upper']")
-        df.show(30)
+                f"{self.name}: unknown operation '{operation}'. Supported: ['cast', 'trim_all', 'upper', 'trim']")
         return df
 
-    def rejected(self, df:DataFrame):
-        return None
 
 class FilterTransform(Transform):
 
@@ -84,7 +85,10 @@ class FilterTransform(Transform):
         return passed
 
     def rejected(self, df:DataFrame):
-        return df.filter(~self._pass()).withColumn("reject_reason", F.lit(self.config.get('reject_reason')))
+        return df.filter(~self._pass()).withColumn(
+            "reject_reason",
+            F.coalesce(F.lit(self.config.get('reject_reason')), F.lit(self.name)))
+
 
 class ExpressionTransform(Transform):
 
@@ -101,8 +105,6 @@ class ExpressionTransform(Transform):
                 f"{self.name}: unknown function '{function}'. Supported: {sorted(EXPRESSION_FUNCTIONS)}")
         return df.withColumn(out_col, fn(columns))
 
-    def rejected(self, df:DataFrame):
-        return None
 
 class AggregateTransform(Transform):
     FUNCTIONS = {"sum": F.sum, "avg": F.avg, "count": F.count, "min": F.min, "max": F.max}
@@ -113,6 +115,3 @@ class AggregateTransform(Transform):
         df = df.groupby(*self.config['group_by']).agg(*agg)
         self.log.info("Applying aggregations on Dataframe ")
         return df
-
-    def rejected(self, df:DataFrame):
-        return None
