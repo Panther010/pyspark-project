@@ -17,7 +17,6 @@ class PipelineConfig:
     @classmethod
     def from_yaml(cls, path: str) -> "PipelineConfig":
         """Load configuration from a YAML file."""
-        # raise NotImplementedError
         with open(path,"r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
         return cls(raw)
