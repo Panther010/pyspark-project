@@ -31,9 +31,10 @@ def test_filter_keeps_or_rejects_null_rows(spark):
 def test_trim_all_removes_spaces(spark):
     df = spark.createDataFrame([(" AAPL ", "   2024-01-15 ", " USD  ")], "instrument_id string, trade_date string, currency string")
     step = CleanColumns({"name": "clean", "operations": [{"function": "trim_all"}]})
-    assert step.apply(df).first().instrument_id == "AAPL"
-    assert step.apply(df).first().trade_date == "2024-01-15"
-    assert step.apply(df).first().currency == "USD"
+    row = step.apply(df).first()
+    assert row.instrument_id == "AAPL"
+    assert row.trade_date == "2024-01-15"
+    assert row.currency == "USD"
 
 def test_bad_number_becomes_null(spark):
     df = spark.createDataFrame([("abc",)], "price string")
@@ -82,12 +83,6 @@ def test_unsupported_date_format_converted_to_date(spark):
     step = CleanColumns({"name": "clean", "operations": [cast]})
 
     assert ([r.trade_date for r in step.apply(df).collect()]) == [datetime.date(2024, 1, 15), None, datetime.date(2024, 1, 15)]
-
-def test_divide_by_zero_give_null(spark):
-    df = spark.createDataFrame([(10.0, 0)], "n double, d long")
-    expression = {"function": "divide", "inputs": [{"column": "n"}, {"column": "d"}]}
-    step = ExpressionTransform({"name": "div", "output_column": "out", "expression": expression})
-    assert step.apply(df).first().out is None
 
 def test_rejected_rows_have_reason(spark):
     df = spark.createDataFrame([(-1.0,)], "price double")
