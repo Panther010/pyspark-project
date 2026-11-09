@@ -56,8 +56,6 @@ python -m src.main
 
 Make reasonable assumptions and document them.
 
-Solution
-
 ---
 
 # Solution
@@ -93,7 +91,7 @@ The input data contains several anomalies. Each one is handled by rule so that *
 4. Price is `0` or negative  Rejected  `invalid_price`.
 5. Volume is `0` or negative  Rejected `invalid_volume`.
 6. Trade date not in `yyyy-MM-dd` Parsed using the configured formats (`yyyy-MM-dd`, `MM/dd/yyyy`)
-   - Anything else becomes `NULL` and is rejected `invalid_trade_date`.
+   - Anything else becomes `NULL`.
 7. Non-USD currency (EUR rows) Rejected `unsupported_currency`.
 8. Exact duplicate rows (two identical META trades) Kept.
 
@@ -136,7 +134,8 @@ The `validation.rules` section of the YAML is applied to the final output, after
    - There is no trade id, so two identical rows cannot be told apart from two genuine identical trades. 
    - Deduplicating could silently remove real volume.
 5. Metric definitions.
-   - `notional = price * volume`; `avg_price` is the simple (unweighted) mean of trade prices; 
+   - `notional = price * volume`; 
+   - `avg_price` is the simple mean of trade prices; 
    - `vwap = total_notional / total_volume`, and is `NULL` rather than an error when the volume is zero.
 6. Filters run before derived columns.
    - Filter steps runs before the `expression` and `aggregate` steps
