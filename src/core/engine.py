@@ -44,7 +44,7 @@ class PipelineEngine:
         return step_class(step_config)
 
     def _read_source(self) -> DataFrame:
-        self.log.info("Reading data from '%s'", self.config.source["path"])
+        self.log.info("Reading data from '%s' \n\n", self.config.source["path"])
         return (self.spark.read
                 .option("header", True)
                 .format(self.config.source["type"])
@@ -75,7 +75,7 @@ class PipelineEngine:
         failed = {rule: n for rule, n in counts1.items() if n}
 
         if failed:
-            self.log.error(f"Output validation failed (rule: violating rows) {failed}")
+            raise ValueError(f"Output validation failed (rule: violating rows) {failed}")
         self.log.info("Output validation passed (%d rules)", len(rules['rules']))
 
 
@@ -86,34 +86,22 @@ class PipelineEngine:
         df = self._read_source()
 
         # Applying transformations
-        self.log.info("Running transformation steps ")
+        self.log.info("Running transformation steps \n\n")
         for step in steps:
-            self.log.info("Running step '%s'", step.name)
+            self.log.info("\n")
+            self.log.info("Running step:  '%s'", step.name)
             df = self._run_transformation(df, step)
 
         # Selecting required columns
-        target_columns = self.config.output_columns.get('columns', [])
-        self.log.info("Selecting columns '%s' from result ", target_columns)
-        if target_columns:
-            df = df.select(*self.config.output_columns['columns'])
+        if self.config.output_columns:
+            target_columns = self.config.output_columns.get('columns', [])
+            self.log.info("\n")
+            self.log.info("Selecting columns '%s' from result \n\n", target_columns)
+            if target_columns:
+                df = df.select(*self.config.output_columns['columns'])
 
         # Running validations
-        self._validate(df)
+        if self.config.validation_rules:
+            self._validate(df)
 
         return df
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
-    )
-    spark_session = SparkSession.builder.appName("engine").master("local").getOrCreate()
-    config_file = "/Users/bakulseth/PycharmProjects/coding-test-data-engineer-main/config/pipeline.yaml"
-
-    pipeline_config = PipelineConfig.from_yaml(config_file)
-    engine = PipelineEngine(spark_session, pipeline_config)
-
-    result_df = engine.run()
-    result_df.show()
-    result_df.printSchema()
-    print(f"Total rows in the dataframe : {result_df.count()}")

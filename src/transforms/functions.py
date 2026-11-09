@@ -31,7 +31,7 @@ def trim_all(df: DataFrame) -> DataFrame:
 
 def trim(df: DataFrame, columns: list[str]) -> DataFrame:
     return df.select([F.trim(F.col(col_name)).alias(col_name)
-                      if col_name == columns else F.col(col_name)
+                      if col_name in columns else F.col(col_name)
                       for col_name in df.columns])
 
 def to_upper(df: DataFrame, columns: list[str]) -> DataFrame:

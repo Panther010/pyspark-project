@@ -4,7 +4,7 @@ pipeline:
 
 source:
   type: csv
-  path: /Users/bakulseth/PycharmProjects/coding-test-data-engineer-main/data/input/instruments.csv
+  path: data/input/instruments.csv
 
 transformations:
   - name: clean_and_cast
