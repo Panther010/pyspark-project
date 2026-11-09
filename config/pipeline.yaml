@@ -59,6 +59,14 @@ transformations:
       operator: gt
       value: 0
 
+  - name: filter_supported_currency
+    type: filter
+    reject_reason: unsupported_currency
+    condition:
+      column: currency
+      operator: in
+      value: [USD]
+
   - name: calculate_notional
     type: expression
     output_column: notional

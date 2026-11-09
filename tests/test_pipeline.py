@@ -40,3 +40,13 @@ class TestPipeline:
         total = result.count()
         distinct = result.select("instrument_id", "trade_date").distinct().count()
         assert total == distinct
+
+    def test_rejected_rows_are_tracked(self, spark: SparkSession):
+        """Bad rows must be kept in rejected_df, each with a reason."""
+        config = PipelineConfig.from_yaml("config/pipeline.yaml")
+        engine = PipelineEngine(spark, config)
+
+        engine.run()
+
+        assert engine.rejected_df.count() == 8
+        assert engine.rejected_df.filter("reject_reason IS NULL").count() == 0

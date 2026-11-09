@@ -70,7 +70,6 @@ class PipelineEngine:
             exprs.append(F.sum(F.when(~check(rule["column"]), 1).otherwise(0)).alias(name))
 
         counts = df.agg(*exprs)
-        counts.show()
         counts1 = counts.first().asDict()
 
         failed = {rule: n for rule, n in counts1.items() if n}

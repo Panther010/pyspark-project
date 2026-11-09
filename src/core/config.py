@@ -21,10 +21,3 @@ class PipelineConfig:
         with open(path,"r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
         return cls(raw)
-
-if __name__ == "__main__":
-    config = PipelineConfig.from_yaml("/Users/bakulseth/PycharmProjects/coding-test-data-engineer-main/config/pipeline.yaml")
-    print(f"Name: {config.name}")
-    print(f"source: {config.source}")
-    print(f"transformation_steps: {config.transformation_steps}")
-    print(f"output_columns: {config.output_columns}")
