@@ -39,7 +39,7 @@ transformations:
     type: filter
     reject_reason: missing_volume
     condition:
-      column: price
+      column: volume
       operator: not_null
       value: 0
 

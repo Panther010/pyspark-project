@@ -19,6 +19,11 @@ FILTER_OPERATORS = {
         "not_null": lambda c, v: F.col(c).isNotNull()
     }
 
+CHECKS = {
+    "not_null": lambda c: F.col(c).isNotNull(),
+    "positive": lambda c: F.coalesce(F.col(c) > 0, F.lit(False)),
+}
+
 def trim_all(df: DataFrame) -> DataFrame:
     return df.select([F.trim(F.col(col_name)).alias(col_name)
                       if col_type == "string" else F.col(col_name)
