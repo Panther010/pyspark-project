@@ -74,18 +74,21 @@ class FilterTransform(Transform):
 
         if operator not in FILTER_OPERATORS:
             raise ValueError(f"{self.name}: unknown operator '{operator}'. Supported: {sorted(FILTER_OPERATORS)}")
+        value_str = f" '{value}'" if 'null' not in operator else ""
+        log_desc = f"column '{column}' {operator.upper()} {value_str}"
 
-        self.log.info("Applying '%s' on column : '%s'", operator, column)
-
-        return FILTER_OPERATORS[operator](column, value)
+        return FILTER_OPERATORS[operator](column, value), log_desc
 
     def apply(self, df: DataFrame) -> DataFrame:
-
-        passed = df.filter(self._pass())
+        condition, log_desc = self._pass()
+        passed = df.filter(condition)
+        self.log.info("Filtering PASSED rows where: '%s'", log_desc)
         return passed
 
     def rejected(self, df:DataFrame):
-        return df.filter(~self._pass()).withColumn(
+        condition, log_desc = self._pass()
+        self.log.info("Filtering REJECTED rows where: '%s'", log_desc)
+        return df.filter(~condition).withColumn(
             "reject_reason",
             F.coalesce(F.lit(self.config.get('reject_reason')), F.lit(self.name)))
 
